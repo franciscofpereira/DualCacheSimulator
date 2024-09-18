@@ -7,8 +7,6 @@
 #include <stdint.h>
 #include "Cache.h"
 
-#define L1_NUM_LINES L1_SIZE/BLOCK_SIZE
-
 void resetTime();
 
 uint32_t getTime();
@@ -29,7 +27,7 @@ typedef struct CacheLine {
 
 typedef struct Cache {
   uint32_t init;
-  CacheLine lines[L1_NUM_LINES];  // The Cache object now has several lines
+  CacheLine line;
 } Cache;
 
 /*********************** Interfaces *************************/
