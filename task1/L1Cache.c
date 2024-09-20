@@ -4,7 +4,8 @@ uint8_t L1Cache[L1_SIZE];
 uint8_t L2Cache[L2_SIZE];
 uint8_t DRAM[DRAM_SIZE];
 uint32_t time;
-Cache SimpleCache;
+Cache SimpleCache1;
+
 
 /**************** Time Manipulation ***************/
 void resetTime() { time = 0; }
@@ -32,7 +33,7 @@ void accessDRAM(uint32_t address, uint8_t *data, uint32_t mode) {
 
 /*********************** L1 cache *************************/
 
-void initCache() { SimpleCache.init = 0; }
+void initCache() { SimpleCache1.init = 0; }
 
 void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 
@@ -40,14 +41,15 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
   uint8_t TempBlock[BLOCK_SIZE];
 
   /* init cache */
-  if (SimpleCache.init == 0) {
+  if (SimpleCache1.init == 0) {
   
-    SimpleCache.init = 1;
+    SimpleCache1.init = 1;
 
     for (int i = 0; i < L1_NUM_LINES; i++){
-      SimpleCache.lines[i].Valid = 0;
-      SimpleCache.lines[i].Dirty = 0;
-      SimpleCache.lines[i].Tag = 0;
+      SimpleCache1.lines[i].Valid = 0;
+      SimpleCache1.lines[i].Dirty = 0;
+      SimpleCache1.lines[i].Tag = 0;
+      
     }
     
   }
@@ -70,10 +72,11 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 
   uint8_t *block_ptr = L1Cache + (index * BLOCK_SIZE);
 
-  CacheLine *Line = &SimpleCache.lines[index];    // cache line extracted from the address
+  CacheLine *Line = &SimpleCache1.lines[index];    // cache line extracted from the address
 
   /* access Cache*/
   if (!Line->Valid || Line->Tag != Tag) {         // if line not valid or block not present - cache miss
+    
     accessDRAM(MemAddress, TempBlock, MODE_READ); // get new block from DRAM
 
     if ((Line->Valid) && (Line->Dirty)) { // line has dirty block (we need to write it to DRAM before overwriting it)
