@@ -43,20 +43,12 @@ typedef struct Set {    // A set contains the same number of lines as the number
   CacheLine* tail;
 } Set;
 
-typedef struct {
-  uint32_t init;
-  Set sets[NUM_SETS];
-} SetAssociativeL2Cache;
-
 typedef struct { 
   uint32_t init;
-  CacheLine lines[L1_NUM_LINES];  
-} CacheL1;
+  CacheLine L1[L1_NUM_LINES];  
+  Set L2[NUM_SETS];
+} Cache;
 
-typedef struct {
-  uint32_t init;
-  CacheLine lines[L2_NUM_LINES]; 
-} CacheL2;
 
 /*********************** Interfaces *************************/
 

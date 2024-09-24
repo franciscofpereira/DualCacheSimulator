@@ -1,7 +1,6 @@
 #include "2_way_set_associative.h"
 
-CacheL1 Cache1;
-SetAssociativeL2Cache Cache2;
+Cache DualCache;
 
 uint8_t L1Cache[L1_SIZE];
 uint8_t L2Cache[L2_SIZE];
@@ -36,9 +35,29 @@ void accessDRAM(uint32_t address, uint8_t *data, uint32_t mode) {
 /*********************** L1 cache *************************/
 
 void initCache() { 
-  Cache1.init = 0; 
-  Cache2.init = 0;
+  
+  DualCache.init = 0; 
+ 
+  for (int i = 0; i < L1_NUM_LINES; i++){ // Initializes L1 cache lines
+      DualCache.L1[i].Valid = 0;
+      DualCache.L1[i].Dirty = 0;
+      DualCache.L1[i].Tag = 0;
   }
+
+  for (int i = 0; i < NUM_SETS; i++){     // Initializes L2 cache sets
+      DualCache.L2[i].line1.Valid = 0;       
+      DualCache.L2[i].line1.Dirty = 0;
+      DualCache.L2[i].line1.Tag = 0;
+      
+      DualCache.L2[i].line2.Valid = 0;
+      DualCache.L2[i].line2.Dirty = 0;
+      DualCache.L2[i].line2.Tag = 0;
+      
+      DualCache.L2[i].head = &DualCache.L2[i].line1; // Initially, line1 is the head (most recently accessed)
+      DualCache.L2[i].tail = &DualCache.L2[i].line2; // Initially, line2 is the tail (least recently accessed)
+  }
+
+}
 
 void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 
@@ -46,15 +65,8 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
   uint8_t TempBlock[BLOCK_SIZE];
 
   /* init cache */
-  if (Cache1.init == 0) {
-  
-    Cache1.init = 1;
-
-    for (int i = 0; i < L1_NUM_LINES; i++){
-      Cache1.lines[i].Valid = 0;
-      Cache1.lines[i].Dirty = 0;
-      Cache1.lines[i].Tag = 0;
-    }
+  if (DualCache.init == 0) {
+    DualCache.init = 1;
   }
 
   // 18 tag bits + 8 index bits + 6 offset bits
@@ -75,7 +87,7 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 
   uint8_t *block_ptr = L1Cache + (index * BLOCK_SIZE);
 
-  CacheLine *Line = &Cache1.lines[index];    // cache line extracted from the address
+  CacheLine *Line = &DualCache.L1[index];    // cache line extracted from the address
 
   /* access Cache*/
   if (!Line->Valid || Line->Tag != Tag) {   // if line not valid or block not present - L1 cache miss
@@ -83,7 +95,6 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
     accessL2(address, TempBlock, MODE_READ); // get new block from L2 cache
     
     if ((Line->Valid) && (Line->Dirty)) { // line in L1 cache has dirty block (we need to write it to L2 cache before overwriting it)
-      
       accessL2(address, block_ptr, MODE_WRITE); // writing back to L2 cache
     }
 
@@ -109,7 +120,7 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 uint8_t is_L1_dirty(uint32_t address) {
   uint32_t index_mask = 0x0003FC0;
   uint32_t index = (address & index_mask) >> 6;
-  return Cache1.lines[index].Dirty;
+  return DualCache.L1[index].Dirty;
 }
 
 /*********************** L1 cache *************************/
@@ -120,23 +131,8 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
   uint8_t TempBlock[BLOCK_SIZE];  
 
   /* init cache */
-  if (Cache2.init == 0) {
-  
-    Cache2.init = 1;
-
-    for (int i = 0; i < NUM_SETS; i++){     // For each set we initialize both lines
-      Cache2.sets[i].line1.Valid = 0;       
-      Cache2.sets[i].line1.Dirty = 0;
-      Cache2.sets[i].line1.Tag = 0;
-      
-      Cache2.sets[i].line2.Valid = 0;
-      Cache2.sets[i].line2.Dirty = 0;
-      Cache2.sets[i].line2.Tag = 0;
-      
-      Cache2.sets[i].head = &Cache2.sets[i].line1; // Initially, line1 is the head (most recently accessed)
-      Cache2.sets[i].tail = &Cache2.sets[i].line2; // Initially, line2 is the tail (least recently accessed)
-    }
-    
+  if (DualCache.init == 0) {
+    DualCache.init = 1;    
   }
   // 18 tag bits + 8 index bits (256 sets) + 6 offset bits  
   // tag - checks if the loaded block matches the one in memory that contains the data we want to access (associated with an index)
@@ -154,9 +150,9 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
   MemAddress = address >> 6;     // removes offset bits to get the memory address to fetch block from    
   MemAddress = MemAddress << 6;  // adds back the least signifcant bits set to 0
 
-  Set *set = &Cache2.sets[index];    // set extracted from the address
-  CacheLine *Line1 = &Cache2.sets[index].line1;
-  CacheLine *Line2 = &Cache2.sets[index].line2;
+  Set *set = &DualCache.L2[index];    // set extracted from the address
+  CacheLine *Line1 = &DualCache.L2[index].line1;
+  CacheLine *Line2 = &DualCache.L2[index].line2;
 
   uint8_t *block_ptr;
 
@@ -187,6 +183,8 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
 
       set->head = evictLine;                                // Most recently accessed block updated
       set->tail = (evictLine == Line1) ? Line2 : Line1;     // Least recently accessed block updated
+
+      block_ptr = evicted_block_ptr;
       
     } else{ // Line 2 Hit
 
@@ -202,6 +200,11 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
     set->head = Line1;
     set->tail = Line2;
   
+  }
+
+  if (block_ptr == NULL) {
+        fprintf(stderr, "Error: block_ptr is NULL.\n");
+        exit(-1); // Exit if block_ptr is not valid
   }
 
   if (mode == MODE_READ) {    // reading from L2 cache
@@ -224,7 +227,7 @@ uint8_t is_L2_dirty(uint32_t address) {
     uint32_t tag_mask = 0xFFFF8000;
     uint32_t tag = (address & tag_mask);
 
-    Set *set = &Cache2.sets[index]; 
+    Set *set = &DualCache.L2[index]; 
 
     // Checking Line 1
     if (set->line1.Valid && set->line1.Tag == tag) {

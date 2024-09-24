@@ -1,7 +1,6 @@
 #include "L2Cache.h"
 
-CacheL1 Cache1;
-CacheL2 Cache2;
+Cache DualCache;
 
 uint8_t L1Cache[L1_SIZE];
 uint8_t L2Cache[L2_SIZE];
@@ -36,8 +35,20 @@ void accessDRAM(uint32_t address, uint8_t *data, uint32_t mode) {
 /*********************** L1 cache *************************/
 
 void initCache() { 
-  Cache1.init = 0; 
-  Cache2.init = 0;
+  
+  DualCache.init = 0; 
+
+  for (int i = 0; i < L1_NUM_LINES; i++){
+      DualCache.L1[i].Valid = 0;
+      DualCache.L1[i].Dirty = 0;
+      DualCache.L1[i].Tag = 0;
+    }
+
+  for (int i = 0; i < L2_NUM_LINES; i++){
+      DualCache.L2[i].Valid = 0;
+      DualCache.L2[i].Dirty = 0;
+      DualCache.L2[i].Tag = 0;
+    }
   }
 
 void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
@@ -46,15 +57,8 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
   uint8_t TempBlock[BLOCK_SIZE];
 
   /* init cache */
-  if (Cache1.init == 0) {
-  
-    Cache1.init = 1;
-
-    for (int i = 0; i < L1_NUM_LINES; i++){
-      Cache1.lines[i].Valid = 0;
-      Cache1.lines[i].Dirty = 0;
-      Cache1.lines[i].Tag = 0;
-    }
+  if (DualCache.init == 0) {  
+    DualCache.init = 1;
   }
 
   // 18 tag bits + 8 index bits + 6 offset bits
@@ -75,7 +79,7 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 
   uint8_t *block_ptr = L1Cache + (index * BLOCK_SIZE);
 
-  CacheLine *Line = &Cache1.lines[index];    // cache line extracted from the address
+  CacheLine *Line = &DualCache.L1[index];    // cache line extracted from the address
 
   /* access Cache*/
   if (!Line->Valid || Line->Tag != Tag) {   // if line not valid or block not present - L1 cache miss
@@ -109,7 +113,7 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 uint8_t is_L1_dirty(uint32_t address) {
   uint32_t index_mask = 0x0003FC0;
   uint32_t index = (address & index_mask) >> 6;
-  return Cache1.lines[index].Dirty;
+  return DualCache.L1[index].Dirty;
 }
 
 /*********************** L1 cache *************************/
@@ -120,16 +124,8 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
   uint8_t TempBlock[BLOCK_SIZE];
 
   /* init cache */
-  if (Cache2.init == 0) {
-  
-    Cache2.init = 1;
-
-    for (int i = 0; i < L2_NUM_LINES; i++){
-      Cache2.lines[i].Valid = 0;
-      Cache2.lines[i].Dirty = 0;
-      Cache2.lines[i].Tag = 0;
-    }
-    
+  if (DualCache.init == 0) {
+    DualCache.init = 1;
   }
   // 17 tag bits + 9 index bits + 6 offset bits
   // tag - checks if the loaded block matches the one in memory that contains the data we want to access (associated with an index)
@@ -149,7 +145,7 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
 
   uint8_t *block_ptr = L2Cache + (index * BLOCK_SIZE);
 
-  CacheLine *Line = &Cache2.lines[index];    // cache line extracted from the address
+  CacheLine *Line = &DualCache.L2[index];    // cache line extracted from the address
 
   /* access Cache*/
   if (!Line->Valid || Line->Tag != Tag) {         // if line not valid or block not present - cache miss
@@ -182,7 +178,7 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
 uint8_t is_L2_dirty(uint32_t address) {
   uint32_t index_mask = 0x0007FC0;
   uint32_t index = (address & index_mask) >> 6;
-  return Cache2.lines[index].Dirty;
+  return DualCache.L2[index].Dirty;
 }
 
 void read(uint32_t address, uint8_t *data) {
