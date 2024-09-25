@@ -41,11 +41,11 @@ int main() {
     
     resetTime();
 
-    write(addresses[0], (unsigned char *)(&address));
-    uint32_t tag = (addresses[0] & tag_mask) >> 14;
+    write(addresses[1], (unsigned char *)(&address));
+    uint32_t tag = (addresses[1] & tag_mask) >> 14;
     uint32_t set = (address & index_mask) >> 6;
     clock1 = getTime();
-    printf("Write; Set: %d Block Tag: %d Address %d; Value %d; Time %d\n", set, tag, addresses[0], value, clock1);
+    printf("Write; Set: %d Block Tag: %d Address %d; Value %d; Time %d\n", set, tag, addresses[1], value, clock1);
 
     return 0;
 }
