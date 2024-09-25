@@ -141,7 +141,7 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
 
   uint32_t offset_mask = 0x3F;
   uint32_t index_mask = 0x0003FC0;
-  uint32_t tag_mask = 0xFFFF8000;
+  uint32_t tag_mask = 0xFFFFC000;
 
   offset = address & offset_mask;
   index = (address & index_mask) >> 6;
